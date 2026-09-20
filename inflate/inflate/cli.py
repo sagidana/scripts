@@ -1,12 +1,12 @@
 """print the whole function (or class) that `rg --vimgrep` hits sit in.
 
-    rg --vimgrep pattern | enclose
-    rg --vimgrep pattern | enclose --class
-    rg --vimgrep pattern | enclose --callees 2 --callers 1
+    rg --vimgrep pattern | inflate
+    rg --vimgrep pattern | inflate --class
+    rg --vimgrep pattern | inflate --callees 2 --callers 1
 
 each input line is `file:line:col:text` (also `file:line:text`), read from
 stdin, from files named as arguments, or given directly as arguments (so
-`xargs -n 1 enclose` works). the file is parsed with tree-sitter (grammar
+`xargs -n 1 inflate` works). the file is parsed with tree-sitter (grammar
 picked from the file name or shebang, fetched by tree-sitter-language-pack on
 first use) and the innermost named function enclosing the hit is printed once
 as `file:start:end` followed by its lines. hits outside any function, or in
@@ -31,8 +31,8 @@ import os
 import signal
 import sys
 
-import enclose
-from enclose.targets import expand_line, index_for
+import inflate
+from inflate.targets import expand_line, index_for
 
 
 def emit(target, note, args):
@@ -83,7 +83,7 @@ def read_inputs(inputs):
 
 
 def parse_args(argv):
-    argparser = argparse.ArgumentParser(prog='enclose',
+    argparser = argparse.ArgumentParser(prog='inflate',
                                         description=__doc__.split('\n\n')[0])
     argparser.add_argument('inputs',
                            nargs='*',
@@ -123,7 +123,7 @@ def parse_args(argv):
                            help='force this tree-sitter grammar for every file')
     argparser.add_argument('--version',
                            action='version',
-                           version='enclose ' + enclose.__version__)
+                           version='inflate ' + inflate.__version__)
     args = argparser.parse_args(argv)
     args.mode = 'named'
     if args.inner: args.mode = 'inner'

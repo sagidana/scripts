@@ -1,14 +1,14 @@
-# enclose
+# inflate
 
 print the whole function (or class) that `rg --vimgrep` hits sit in.
 
-    rg --vimgrep pattern | enclose
-    rg --vimgrep pattern | enclose --class
-    rg --vimgrep pattern | enclose --callees 2 --callers 1
+    rg --vimgrep pattern | inflate
+    rg --vimgrep pattern | inflate --class
+    rg --vimgrep pattern | inflate --callees 2 --callers 1
 
 each input line is `file:line:col:text` (also `file:line:text` and
 `file:line:col`), read from stdin, from files named as arguments, or given
-directly as arguments (so `xargs -n 1 enclose` works). the file is parsed with
+directly as arguments (so `xargs -n 1 inflate` works). the file is parsed with
 tree-sitter (grammar picked from the file name or shebang, fetched by
 tree-sitter-language-pack on first use) and the innermost named function
 enclosing the hit is printed once as `file:start:end` followed by its lines.
@@ -41,10 +41,10 @@ tree without it).
 definition, no bodies. those lines are valid input again, so the tool chains
 with itself and with anything that understands `file:line`:
 
-    rg --vimgrep todo | enclose --range | sort -u
-    rg --vimgrep todo | enclose --range | enclose --callers 1
-    rg --vimgrep todo | enclose --range | fzf | cut -d: -f1,2 | xargs -I{} vim +{}
-    rg --vimgrep todo | enclose | less
+    rg --vimgrep todo | inflate --range | sort -u
+    rg --vimgrep todo | inflate --range | inflate --callers 1
+    rg --vimgrep todo | inflate --range | fzf | cut -d: -f1,2 | xargs -I{} vim +{}
+    rg --vimgrep todo | inflate | less
 
 ## test
 

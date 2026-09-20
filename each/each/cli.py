@@ -1,6 +1,6 @@
 """run a command pipeline once per input line, the line on its stdin.
 
-    rg --vimgrep todo | each -j4 enclose \| cai -- is this urgent?
+    rg --vimgrep todo | each -j4 inflate \| cai -- is this urgent?
     seq 3 | each tr a-z A-Z \| rev
 
 the words after each's own flags are the command; a literal `|` word (escaped

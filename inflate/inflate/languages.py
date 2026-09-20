@@ -474,7 +474,7 @@ def parser_for(lang):
     try:
         parser = tree_sitter_language_pack.get_parser(lang)
     except Exception as error:
-        warn('lang:' + lang, 'enclose: no grammar for %s (%s)' % (lang, error))
+        warn('lang:' + lang, 'inflate: no grammar for %s (%s)' % (lang, error))
     _parsers[lang] = parser
     return parser
 
@@ -529,7 +529,7 @@ def source_for(path):
         with open(path, 'rb') as handle:
             data = handle.read()
     except OSError as error:
-        warn('file:' + path, 'enclose: cannot read %s (%s)' % (path, error))
+        warn('file:' + path, 'inflate: cannot read %s (%s)' % (path, error))
     _sources[path] = data
     return data
 

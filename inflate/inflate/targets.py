@@ -4,12 +4,12 @@ import os
 import re
 import subprocess
 
-from enclose.languages import (language_for,
+from inflate.languages import (language_for,
                               parser_for,
                               source_for,
                               tree_for,
                               warn)
-from enclose.nodes import (calls_in,
+from inflate.nodes import (calls_in,
                           descendants,
                           embedded_script,
                           find_definition,
@@ -106,7 +106,7 @@ def expand_line(line, args):
     lang = args.lang
     if lang is None: lang = language_for(path)
     if lang is None:
-        warn('ext:' + path, 'enclose: unknown language for %s' % path)
+        warn('ext:' + path, 'inflate: unknown language for %s' % path)
         return None
     tree = tree_for(path, lang)
     if tree is None: return None

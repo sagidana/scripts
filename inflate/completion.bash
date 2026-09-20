@@ -1,4 +1,4 @@
-_enclose() {
+_inflate() {
     local cur=${COMP_WORDS[COMP_CWORD]}
     if [[ $cur == -* ]]; then
         COMPREPLY=($(compgen -W '--function --class --callees --callers --root --range --inner --outer --lang --version --help' -- "$cur"))
@@ -8,4 +8,4 @@ _enclose() {
     COMPREPLY=()
 }
 
-complete -F _enclose enclose
+complete -F _inflate inflate

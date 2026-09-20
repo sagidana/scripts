@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "enclose"
+name = "inflate"
 description = "print the whole function (or class) that rg --vimgrep hits sit in"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -11,13 +11,13 @@ dependencies = ["tree-sitter-language-pack"]
 dynamic = ["version"]
 
 [project.scripts]
-enclose = "enclose.cli:main"
+inflate = "inflate.cli:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
 
 [tool.setuptools]
-packages = ["enclose"]
+packages = ["inflate"]
 
 [tool.setuptools.dynamic]
-version = {attr = "enclose.__version__"}
+version = {attr = "inflate.__version__"}

@@ -7,7 +7,7 @@ lines on stdin, writes lines on stdout, warns on stderr, and composes with
 one directory per utility, each a standalone pip-installable package with
 its own README, tests and console script:
 
-    pip install ./enclose
+    pip install ./inflate
     pip install ./each
 
 or all of them at once, extra arguments going to pip (`--user`, `-e`, ...):
@@ -24,20 +24,20 @@ line in `.bashrc` does the same:
 
 | utility | job |
 | --- | --- |
-| [enclose](enclose/) | print the whole function or class that `rg --vimgrep` hits sit in |
+| [inflate](inflate/) | print the whole function or class that `rg --vimgrep` hits sit in |
 | [each](each/) | run a command pipeline once per input line, the line on its stdin |
 
 ## examples
 
-the snippets below run in `enclose/tests/fixtures`, so the output shown is real.
+the snippets below run in `inflate/tests/fixtures`, so the output shown is real.
 
-### enclose
+### inflate
 
-`rg --vimgrep` gives `file:line:col:text` hits; `enclose` turns every hit into
+`rg --vimgrep` gives `file:line:col:text` hits; `inflate` turns every hit into
 the function it sits in, printed once as a `file:start:end` header followed
 by the function's lines. hits outside any function are echoed unchanged:
 
-    $ rg --vimgrep 'helper\(' sample.py | enclose
+    $ rg --vimgrep 'helper\(' sample.py | inflate
     sample.py:4:5
     def helper(value):
         return value + 1
@@ -59,7 +59,7 @@ by the function's lines. hits outside any function are echoed unchanged:
 `--range` keeps only the headers, so the answer to "which functions mention
 this" is one line per function:
 
-    $ rg --vimgrep 'helper\(' sample.py | enclose --range
+    $ rg --vimgrep 'helper\(' sample.py | inflate --range
     sample.py:4:5
     sample.py:14:16
     sample.py:25:29
@@ -67,20 +67,20 @@ this" is one line per function:
 
 `--class` widens to the enclosing class, struct, impl or module instead:
 
-    $ rg --vimgrep 'self.size = helper' sample.py | enclose --class --range
+    $ rg --vimgrep 'self.size = helper' sample.py | inflate --class --range
     sample.py:8:22
 
 `--callers N` adds the functions that call the result, `N` levels deep; every
 extra block says why it is there. `--callees N` goes the other way. both look
 through every file of the same language under `--root` (default: cwd):
 
-    $ rg --vimgrep 'def helper' sample.py | enclose --callers 1 --range
+    $ rg --vimgrep 'def helper' sample.py | inflate --callers 1 --range
     sample.py:4:5
     sample.py:14:16 (caller of helper, depth 1)
     sample.py:25:29 (caller of helper, depth 1)
     sample.py:27:27 (caller of helper, depth 1)
 
-    $ rg --vimgrep 'int main' sample.c | enclose --callees 2 --range
+    $ rg --vimgrep 'int main' sample.c | inflate --callees 2 --range
     sample.c:18:23
     sample.c:12:16 (callee of main, depth 1)
     sample.c:7:10 (callee of grow, depth 2)
@@ -89,41 +89,41 @@ by default the innermost *named* function wins, so a hit inside a lambda or
 callback expands to the function holding it. `--inner` takes the anonymous
 one, `--outer` the outermost:
 
-    $ rg --vimgrep 'lambda' sample.py | enclose --inner
+    $ rg --vimgrep 'lambda' sample.py | inflate --inner
     sample.py:27:27
         callback = lambda x: helper(x)
 
-    $ rg --vimgrep 'return n - 1' sample.py | enclose --outer --range
+    $ rg --vimgrep 'return n - 1' sample.py | inflate --outer --range
     sample.py:18:22
 
 hits can also be arguments, or files holding hits, and `file:line:text` (from
 `rg -Hn`) works as well as `file:line:col:text`:
 
-    $ enclose --range sample.go:14:11 sample.rs:11:21
+    $ inflate --range sample.go:14:11 sample.rs:11:21
     sample.go:13:16
     sample.rs:10:13
 
-    $ rg -Hn 'def helper' sample.py | enclose --range
+    $ rg -Hn 'def helper' sample.py | inflate --range
     sample.py:4:5
 
-    $ rg --vimgrep 'helper\(' sample.py > hits && enclose --range hits
+    $ rg --vimgrep 'helper\(' sample.py > hits && inflate --range hits
 
 the grammar comes from the extension, well-known file names, or the shebang
 of extensionless scripts; `--lang` overrides it for every file:
 
-    $ rg --vimgrep 'helper' run | enclose --range
+    $ rg --vimgrep 'helper' run | inflate --range
     run:3:4
     run:7:7:print(helper(1))
 
-    $ rg --vimgrep 'helper' weird.ext | enclose --lang python
+    $ rg --vimgrep 'helper' weird.ext | inflate --lang python
 
-`enclose`'s output is valid input again, so it chains with itself and with
+`inflate`'s output is valid input again, so it chains with itself and with
 anything that reads `file:line`:
 
-    rg --vimgrep todo | enclose --range | sort -u | wc -l
-    rg --vimgrep todo | enclose --range | enclose --callers 1
-    rg --vimgrep todo | enclose --range | fzf | cut -d: -f1,2 | xargs -I{} vim +{}
-    rg --vimgrep todo | enclose | less
+    rg --vimgrep todo | inflate --range | sort -u | wc -l
+    rg --vimgrep todo | inflate --range | inflate --callers 1
+    rg --vimgrep todo | inflate --range | fzf | cut -d: -f1,2 | xargs -I{} vim +{}
+    rg --vimgrep todo | inflate | less
 
 ### each
 
@@ -186,17 +186,17 @@ works as a guard in scripts:
 
 ### together
 
-`enclose` reads all hits at once and answers per function; `each` makes any
+`inflate` reads all hits at once and answers per function; `each` makes any
 other line-at-a-time tool do the same. the shapes compose:
 
     # ask a model about every function that mentions a todo, four at a time
-    rg --vimgrep todo | each -j4 enclose \| cai -- is this urgent?
+    rg --vimgrep todo | each -j4 inflate \| cai -- is this urgent?
 
     # one block per hit: the hit, then every caller of its function
-    rg --vimgrep todo | enclose --range | each enclose --callers 1 --range
+    rg --vimgrep todo | inflate --range | each inflate --callers 1 --range
 
     # line count of every function that mentions a todo
-    rg --vimgrep todo | each enclose \| wc -l
+    rg --vimgrep todo | each inflate \| wc -l
 
 ## conventions
 
