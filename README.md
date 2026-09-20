@@ -8,10 +8,12 @@ one directory per utility, each a standalone pip-installable package with
 its own README, tests and console script:
 
     pip install ./enclose
+    pip install ./each
 
 | utility | job |
 | --- | --- |
 | [enclose](enclose/) | print the whole function or class that `rg --vimgrep` hits sit in |
+| [each](each/) | run a command pipeline once per input line, the line on its stdin |
 
 ## conventions
 

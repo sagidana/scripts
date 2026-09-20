@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "each"
+description = "run a command pipeline once per input line, the line on its stdin"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+dynamic = ["version"]
+
+[project.scripts]
+each = "each.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools]
+packages = ["each"]
+
+[tool.setuptools.dynamic]
+version = {attr = "each.__version__"}
