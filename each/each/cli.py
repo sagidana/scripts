@@ -8,7 +8,9 @@ from the shell as `\|`) separates pipeline stages. no shell is involved: the
 words are passed to the commands exactly as typed. every input line is fed to
 the first stage's stdin and the last stage's stdout is printed as one block:
 the line itself, then the output, then a blank line. blocks come out in input
-order even when jobs run in parallel. blank input lines are skipped.
+order even when jobs run in parallel, and a job's stderr is printed on
+each's stderr together with its block, so parallel jobs never interleave.
+blank input lines are skipped.
 
     -j N, --jobs N    run N lines at a time (default 1)
 
@@ -20,6 +22,7 @@ import concurrent.futures
 import os
 import subprocess
 import sys
+import threading
 
 import each
 
@@ -40,22 +43,34 @@ def stages_of(words):
     return stages
 
 
+def drain(handle, chunks):
+    chunks.append(handle.read())
+    handle.close()
+
+
 def run_job(stages, line):
-    """(status, output) of the pipeline fed one line; status is the first non-zero exit"""
+    """(status, output, errors) of the pipeline fed one line; status is the first non-zero exit"""
     processes = []
+    errors_read, errors_write = os.pipe()
     try:
         for stage in stages:
             stdin = subprocess.PIPE
             if processes: stdin = processes[-1].stdout
-            process = subprocess.Popen(stage, stdin=stdin, stdout=subprocess.PIPE)
+            process = subprocess.Popen(stage, stdin=stdin, stdout=subprocess.PIPE, stderr=errors_write)
             processes.append(process)
     except OSError as error:
+        os.close(errors_write)
+        os.close(errors_read)
         for process in processes:
             process.kill()
         sys.stderr.write('each: %s: %s\n' % (stage[0], error.strerror))
-        return 127, ''
+        return 127, '', ''
+    os.close(errors_write)
     for process in processes[:-1]:
         process.stdout.close()
+    chunks = []
+    reader = threading.Thread(target=drain, args=(os.fdopen(errors_read, 'rb'), chunks))
+    reader.start()
     first = processes[0]
     last = processes[-1]
     try:
@@ -68,15 +83,22 @@ def run_job(stages, line):
     for process in processes:
         code = process.wait()
         if status == 0: status = code
-    return status, output
+    reader.join()
+    errors = chunks[0].decode('utf-8', 'replace')
+    return status, output, errors
 
 
-def emit(line, output):
+def emit(line, output, errors):
+    """one block on stdout, and the job's stderr on stderr, at the same moment"""
     sys.stdout.write(line + '\n')
     if output: sys.stdout.write(output)
     if output and not output.endswith('\n'): sys.stdout.write('\n')
     sys.stdout.write('\n')
     sys.stdout.flush()
+    if not errors: return
+    sys.stderr.write(errors)
+    if not errors.endswith('\n'): sys.stderr.write('\n')
+    sys.stderr.flush()
 
 
 def parse_args(argv):
@@ -116,9 +138,9 @@ def run(args):
             lines.append(line)
             futures.append(pool.submit(run_job, stages, line))
         for line, future in zip(lines, futures):
-            status, output = future.result()
+            status, output, errors = future.result()
             if status != 0: failed = True
-            emit(line, output)
+            emit(line, output, errors)
     if failed: return 1
     return 0
 

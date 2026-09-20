@@ -14,8 +14,9 @@ builds pipes, nothing more.
 
 every input line is fed to the first stage's stdin and the last stage's
 stdout is printed as one block: the line itself, then the output, then a
-blank line. blocks come out in input order even when jobs run in parallel.
-blank input lines are skipped. stderr of the commands passes through.
+blank line. blocks come out in input order even when jobs run in parallel,
+and a job's stderr is printed on each's stderr together with its block, so
+parallel jobs never interleave. blank input lines are skipped.
 
     -j N, --jobs N    run N lines at a time (default 1)
 
@@ -37,11 +38,15 @@ exit status is 1 when any job failed (any stage exited non-zero), else 0.
 
 ## completion
 
-register `each` the way `sudo` and `xargs` are registered, so the shell
-completes the command after it:
+`completion.bash` completes each's flags, then command names, then hands
+the rest to the completion of the command being typed, restarting after
+every `\|`. it needs nothing but bash. the repo's `install.sh` links it
+where bash-completion finds it; without bash-completion, in `.bashrc`:
 
-    complete -F _command each                             # bash
-    complete -c each -x -a '(__fish_complete_subcommand)'  # fish
+    source /path/to/repo/each/completion.bash
+
+commands after `each` complete only as well as they do on their own: a
+command with no completion of its own gets file names.
 
 ## test
 

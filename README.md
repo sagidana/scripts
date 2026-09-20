@@ -15,6 +15,13 @@ or all of them at once, extra arguments going to pip (`--user`, `-e`, ...):
     ./install.sh
     ./install.sh --user
 
+`install.sh` also links every tool's bash completion into
+`~/.local/share/bash-completion/completions/`, where the bash-completion
+package loads it on first use in a new shell. without bash-completion, one
+line in `.bashrc` does the same:
+
+    source /path/to/repo/completion.bash
+
 | utility | job |
 | --- | --- |
 | [enclose](enclose/) | print the whole function or class that `rg --vimgrep` hits sit in |

@@ -112,8 +112,10 @@ def expand_line(line, args):
     if tree is None: return None
     lines = source.split(b'\n')
     if row >= len(lines): return None
-    if col >= len(lines[row]): col = len(lines[row]) - 1
+    text = lines[row]
+    if col >= len(text): col = len(text) - 1
     if col < 0: col = 0
+    while col < len(text) - 1 and text[col] in b' \t': col = col + 1
     leaf = leaf_at(tree.root_node, row, col)
     if leaf is None: return None
     host = embedded_script(leaf)

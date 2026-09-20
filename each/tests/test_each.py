@@ -70,3 +70,16 @@ def test_no_command_is_a_usage_error():
 def test_jobs_must_be_positive():
     code, out, err = each('-j', '0', 'cat', stdin='a\n')
     assert code == 2
+
+
+def test_stderr_is_grouped_with_the_block_in_order():
+    script = 'import sys, time; line = sys.stdin.read().strip(); time.sleep(0.3 / int(line)); sys.stderr.write("err " + line + "\\n"); print("out " + line)'
+    code, out, err = each('-j', '3', sys.executable, '-c', script, stdin='1\n2\n3\n')
+    assert out == '1\nout 1\n\n2\nout 2\n\n3\nout 3\n\n'
+    assert err == 'err 1\nerr 2\nerr 3\n'
+
+
+def test_stderr_of_every_stage_is_captured():
+    code, out, err = each('sh', '-c', 'echo first >&2', '|', 'sh', '-c', 'cat; echo second >&2', stdin='a\n')
+    assert out == 'a\n\n'
+    assert sorted(err.splitlines()) == ['first', 'second']

@@ -111,3 +111,8 @@ def test_script_inside_html():
 
 def test_blank_lines_are_dropped():
     assert enclose('--range', stdin='\n\nsample.py:15:21:x\n\n') == 'sample.py:14:16\n'
+
+
+def test_hit_on_leading_whitespace_expands_to_the_def_on_that_line():
+    hits = 'sample.py:14:1:    def grow(self):\nsample.py:20:1:        def inner(n):\n'
+    assert enclose('--range', stdin=hits) == 'sample.py:14:16\nsample.py:20:21\n'
