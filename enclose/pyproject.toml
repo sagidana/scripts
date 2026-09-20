@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enclose"
+description = "print the whole function (or class) that rg --vimgrep hits sit in"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["tree-sitter-language-pack"]
+dynamic = ["version"]
+
+[project.scripts]
+enclose = "enclose.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools]
+packages = ["enclose"]
+
+[tool.setuptools.dynamic]
+version = {attr = "enclose.__version__"}

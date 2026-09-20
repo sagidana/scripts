@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+def helper(value):
+    return value + 1
+
+
+print(helper(1))
