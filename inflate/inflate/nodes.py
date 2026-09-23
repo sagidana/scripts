@@ -570,7 +570,10 @@ def pick_class(leaf, source, mode):
         every.append(node)
     if not every: return None
     if mode == 'outer': return every[-1]
-    return every[0]
+    # a declaration line names the class without being it: smali's
+    # `.class public final Lp/dv91;` is a class_directive inside the
+    # class_definition that is the whole file, and both start on row one
+    return widest_at_row(every)
 
 
 def is_inner_duplicate(node, source):
@@ -602,6 +605,22 @@ def is_nested_fragment(node, source):
         if is_function_node(parent, source): return True
         parent = parent.parent
     return False
+
+
+def pick_fallback_class(leaf, source, mode):
+    """the class to show when nothing encloses the hit as a function
+
+    narrower than pick_class on purpose. a file's own root counts as a class
+    for --class, and in smali that is the whole answer: the file is one
+    class, so a hit on a directive or a field has nowhere else to go. but a
+    stray top-level line in python would drag in the entire module, which is
+    worse than leaving the line alone, and NOT_CLASS_EXACT is exactly the set
+    of types that are a class only by virtue of sitting at the top.
+    """
+    node = pick_class(leaf, source, mode)
+    if node is None: return None
+    if node.type in NOT_CLASS_EXACT: return None
+    return node
 
 
 def climb_wrappers(node):
@@ -790,5 +809,9 @@ def find_definition(root, source, row, col, args):
         return climb_wrappers(node)
     node = pick_function(leaf, source, args.mode)
     if node is not None: return climb_wrappers(node)
-    return pick_body_with_signature(leaf)
+    node = pick_body_with_signature(leaf)
+    if node is not None: return node
+    node = pick_fallback_class(leaf, source, args.mode)
+    if node is None: return None
+    return climb_wrappers(node)
 

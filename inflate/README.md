@@ -12,8 +12,12 @@ directly as arguments (so `xargs -n 1 inflate` works). the file is parsed with
 tree-sitter (grammar picked from the file name or shebang, fetched by
 tree-sitter-language-pack on first use) and the innermost named function
 enclosing the hit is printed once as `file:start:end` followed by its lines.
-hits outside any function, or in files without a grammar, are echoed
-unchanged, so nothing is lost in a pipeline.
+a hit with no enclosing function falls back to the enclosing class, which is
+the only answer there is in a language whose file is one class -- every hit
+on a smali directive or field. a file's own root does not count, so a stray
+top-level line is not dragged out to the whole module. hits outside both, or
+in files without a grammar, are echoed unchanged, so nothing is lost in a
+pipeline.
 
     --function    expand to the enclosing function (default)
     --class       expand to the enclosing class/struct/module instead

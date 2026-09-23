@@ -9,8 +9,9 @@ stdin, from files named as arguments, or given directly as arguments (so
 `xargs -n 1 inflate` works). the file is parsed with tree-sitter (grammar
 picked from the file name or shebang, fetched by tree-sitter-language-pack on
 first use) and the innermost named function enclosing the hit is printed once
-as `file:start:end` followed by its lines. hits outside any function, or in
-files without a grammar, are echoed unchanged.
+as `file:start:end` followed by its lines. a hit with no enclosing function
+falls back to the enclosing class, though never to the file's own root. hits
+outside both, or in files without a grammar, are echoed unchanged.
 
     --function    expand to the enclosing function (default)
     --class       expand to the enclosing class/struct/module instead

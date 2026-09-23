@@ -301,11 +301,29 @@ def test_class(lang):
 
 
 @pytest.mark.parametrize('lang', LANGUAGES)
+def test_class_from_its_own_declaration(lang):
+    """a hit on the class's own first row expands to the same class
+
+    the declaration line is a node of its own in some grammars (smali writes
+    `.class public final Lp/x;` as a one-row class_directive inside the
+    class_definition that is the whole file) and it used to win for being the
+    innermost.
+    """
+    if not FIXTURES[lang][1]: pytest.skip('no class construct')
+    shape = Shape(lang)
+    inside = headers(inflate(lang, shape.helper_call(), '--class'))
+    assert len(inside) == 1, 'expected exactly one definition'
+    found = headers(inflate(lang, inside[0][0], '--class'))
+    assert found == inside, 'the declaration row gave a different class'
+
+
+@pytest.mark.parametrize('lang', LANGUAGES)
 def test_callees_one(lang):
     """runner's single callee is greet"""
     shape = Shape(lang)
     found = headers(inflate(lang, shape.greet_call(), '--callees', '1'))
     assert covers(found, shape.runner_def()), 'the seed itself is missing'
+    assert found[0][0] > shape.greet_def(), 'the seed widened past runner'
     assert covers(found, shape.greet_def()), 'greet was not reached from runner'
 
 
@@ -314,6 +332,7 @@ def test_callees_two(lang):
     """two levels down from runner reaches helper"""
     shape = Shape(lang)
     found = headers(inflate(lang, shape.greet_call(), '--callees', '2'))
+    assert found[0][0] > shape.greet_def(), 'the seed widened past runner'
     assert covers(found, shape.greet_def()), 'greet was not reached from runner'
     assert covers(found, shape.helper_def()), 'helper was not reached from greet'
 
@@ -324,6 +343,7 @@ def test_callers_one(lang):
     shape = Shape(lang)
     found = headers(inflate(lang, shape.helper_def(), '--callers', '1'))
     assert covers(found, shape.helper_def()), 'the seed itself is missing'
+    assert found[0][1] < shape.greet_def(), 'the seed widened past helper'
     assert covers(found, shape.greet_def()), 'greet was not found as a caller'
 
 
@@ -332,5 +352,6 @@ def test_callers_two(lang):
     """two levels up from helper reaches runner"""
     shape = Shape(lang)
     found = headers(inflate(lang, shape.helper_def(), '--callers', '2'))
+    assert found[0][1] < shape.greet_def(), 'the seed widened past helper'
     assert covers(found, shape.greet_def()), 'greet was not found as a caller'
     assert covers(found, shape.runner_def()), 'runner was not found as a caller'
