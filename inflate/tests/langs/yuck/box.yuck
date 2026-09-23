@@ -1,0 +1,8 @@
+(defwidget helper []
+  (box))
+
+(defwidget greet []
+  (helper))
+
+(defwidget runner []
+  (greet))

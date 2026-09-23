@@ -5,6 +5,7 @@ import re
 import subprocess
 
 from inflate.languages import (language_for,
+                              lines_for,
                               parser_for,
                               source_for,
                               tree_for,
@@ -17,9 +18,13 @@ from inflate.nodes import (calls_in,
                           is_anonymous_node,
                           is_class_node,
                           is_function_node,
+                          is_inner_duplicate,
+                          is_nested_fragment,
                           leaf_at,
+                          mentions_in,
                           name_of,
-                          rows_of)
+                          rows_of,
+                          widen)
 
 
 SKIP_DIRS = set()
@@ -49,7 +54,9 @@ class Target:
         self.source = source
         self.node = node
         self.start_row, self.end_row = rows_of(node)
-        self.name = name_of(node, self.source)
+        # a grammar can hand back the body alone, with the signature beside it
+        # rather than above it; the name is written in the signature
+        self.name = name_of(widen(node)[0], self.source)
 
     def key(self):
         return (os.path.abspath(self.path), self.start_row, self.end_row)
@@ -58,9 +65,19 @@ class Target:
         return '%s:%d:%d' % (self.path, self.start_row + 1, self.end_row + 1)
 
     def lines(self):
-        rows = self.source.split(b'\n')
+        rows = lines_for(self.path)
         chunk = b'\n'.join(rows[self.start_row:self.end_row + 1])
         return chunk.decode('utf-8', 'replace')
+
+    def scan_nodes(self):
+        """the nodes this definition's calls can be written in
+
+        a grammar that splits a definition into a signature and a body indexes
+        the signature, and the calls are all in the body next to it.
+        """
+        start, end = widen(self.node)
+        if start == end: return [self.node]
+        return [start, end]
 
     def defined_names(self):
         """own name plus the names of functions defined inside (class members)"""
@@ -110,7 +127,7 @@ def expand_line(line, args):
         return None
     tree = tree_for(path, lang)
     if tree is None: return None
-    lines = source.split(b'\n')
+    lines = lines_for(path)
     if row >= len(lines): return None
     text = lines[row]
     if col >= len(text): col = len(text) - 1
@@ -172,6 +189,7 @@ class Index:
         self.classes = []
         self.by_name = {}
         self.callees = {}
+        self.calls = {}
         self.build()
 
     def add(self, target):
@@ -190,6 +208,8 @@ class Index:
                     self.classes.append(Target(path, self.lang, source, node))
                     continue
                 if not is_function_node(node, source): continue
+                if is_inner_duplicate(node, source): continue
+                if is_nested_fragment(node, source): continue
                 if not is_anonymous_node(node, source):
                     target = Target(path, self.lang, source, node)
                     self.functions.append(target)
@@ -201,11 +221,35 @@ class Index:
                 self.functions.append(target)
                 self.add(target)
 
+    def knows_any(self, names):
+        for name in names:
+            if name in self.by_name: return True
+        return False
+
+    def calls_from(self, target):
+        """the names one function calls
+
+        by call node where the grammar labels one, else by the names it
+        mentions. roughly a quarter of grammars never label a call, and a few
+        more label it but hand back the wrong word, so a call node that names
+        nothing in the index counts as nothing found.
+        """
+        key = target.key()
+        if key in self.calls: return self.calls[key]
+        found = set()
+        for node in target.scan_nodes():
+            found.update(calls_in(node, target.source))
+        if not self.knows_any(found):
+            for node in target.scan_nodes():
+                found.update(mentions_in(node, target.source, self.by_name, target.name))
+        self.calls[key] = found
+        return found
+
     def callees_of(self, target):
         key = target.key()
         if key in self.callees: return self.callees[key]
         found = []
-        for name in sorted(calls_in(target.node, target.source)):
+        for name in sorted(self.calls_from(target)):
             for callee in self.by_name.get(name, []):
                 found.append(callee)
         self.callees[key] = found
@@ -218,7 +262,7 @@ class Index:
         for function in self.functions:
             if function.key() == target.key(): continue
             if inside(function, target): continue
-            if not calls_in(function.node, function.source) & wanted: continue
+            if not self.calls_from(function) & wanted: continue
             found.append(function)
         return found
 

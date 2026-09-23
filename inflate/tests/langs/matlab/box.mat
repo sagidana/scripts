@@ -1,0 +1,19 @@
+classdef Box
+
+    methods
+
+        function r = helper(obj, value)
+            r = value + 1;
+        end
+
+        function r = greet(obj, value)
+            r = helper(obj, value) * 2;
+        end
+
+        function r = runner(obj)
+            r = greet(obj, 3);
+        end
+
+    end
+
+end

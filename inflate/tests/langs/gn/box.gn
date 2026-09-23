@@ -1,0 +1,13 @@
+template("helper") {
+  print(target_name)
+}
+
+template("greet") {
+  helper(target_name) {
+  }
+}
+
+template("runner") {
+  greet(target_name) {
+  }
+}

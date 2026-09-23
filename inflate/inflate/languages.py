@@ -458,6 +458,7 @@ SHEBANGS['osascript'] = 'javascript'
 
 _parsers = {}
 _sources = {}
+_lines = {}
 _trees = {}
 _warned = set()
 
@@ -532,6 +533,20 @@ def source_for(path):
         warn('file:' + path, 'inflate: cannot read %s (%s)' % (path, error))
     _sources[path] = data
     return data
+
+
+def lines_for(path):
+    """the source split into rows, cached
+
+    a hit list walks one file many times over, and splitting a megabyte per
+    hit is the whole cost of a big `rg | inflate` pipeline.
+    """
+    if path in _lines: return _lines[path]
+    rows = None
+    source = source_for(path)
+    if source is not None: rows = source.split(b'\n')
+    _lines[path] = rows
+    return rows
 
 
 def tree_for(path, lang):

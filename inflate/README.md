@@ -50,3 +50,21 @@ with itself and with anything that understands `file:line`:
 
     pip install .[test]
     pytest
+
+`tests/test_inflate.py` covers the pipeline itself. `tests/test_languages.py`
+covers the grammars: `tests/langs/<lang>/` holds one small fixture per
+code-bearing language, all written to the same shape --
+
+    helper      a leaf
+    greet       calls helper
+    runner      calls greet
+
+inside a class named `Box` where the language has one. every fixture is run
+through `--function`, `--class`, `--callees 1`, `--callees 2`, `--callers 1`
+and `--callers 2`. line numbers are never pinned: the three names are found
+by scanning the fixture, so a fixture stays editable. two guards keep a bad
+fixture from reading as a bad tool -- `test_fixture_shape` checks the name
+layout, `test_fixture_parses` checks the grammar swallows the file whole.
+
+a language failing there is a real gap in `nodes.py`'s classification (or in
+the grammar itself), not a flaky test.

@@ -1,0 +1,12 @@
+@helper
+	#01 ADD
+	JMP2r
+
+@greet
+	;helper JSR2
+	#02 MUL
+	JMP2r
+
+@runner
+	;greet JSR2
+	JMP2r

@@ -60,6 +60,15 @@ NOT_FUNCTION_TOKENS.add('header')
 NOT_FUNCTION_TOKENS.add('left')
 NOT_FUNCTION_TOKENS.add('spec')
 
+FUNCTION_EXACT = set()
+FUNCTION_EXACT.add('clause_term')
+FUNCTION_EXACT.add('word_definition')
+FUNCTION_EXACT.add('operator_definition')
+FUNCTION_EXACT.add('mixin_statement')
+FUNCTION_EXACT.add('new_command_definition')
+FUNCTION_EXACT.add('bind')
+FUNCTION_EXACT.add('rule')
+
 INNER_BODY_TYPES = set()
 INNER_BODY_TYPES.add('function_body')
 INNER_BODY_TYPES.add('method_body')
@@ -68,6 +77,13 @@ INNER_BODY_TYPES.add('procedure_body')
 INNER_BODY_TYPES.add('lambda_body')
 INNER_BODY_TYPES.add('func_body')
 INNER_BODY_TYPES.add('fun_body')
+
+BODY_TOKENS = set()
+BODY_TOKENS.add('body')
+BODY_TOKENS.add('block')
+BODY_TOKENS.add('statements')
+BODY_TOKENS.add('suite')
+BODY_TOKENS.add('sequence')
 
 ANONYMOUS_TOKENS = set()
 ANONYMOUS_TOKENS.add('lambda')
@@ -99,6 +115,10 @@ CLASS_TOKENS.add('mixin')
 CLASS_TOKENS.add('extension')
 CLASS_TOKENS.add('codeunit')
 CLASS_TOKENS.add('actor')
+CLASS_TOKENS.add('package')
+
+CLASS_EXACT = set()
+CLASS_EXACT.add('package_body')
 
 NOT_CLASS_TOKENS = set()
 NOT_CLASS_TOKENS.add('name')
@@ -132,6 +152,10 @@ NOT_CLASS_TOKENS.add('clause')
 NOT_CLASS_TOKENS.add('attribute')
 NOT_CLASS_TOKENS.add('spec')
 NOT_CLASS_TOKENS.add('elem')
+NOT_CLASS_TOKENS.add('elements')
+# `x_or_y` node types are grammar unions (verilog's module_or_generate_item),
+# never a class themselves
+NOT_CLASS_TOKENS.add('or')
 NOT_CLASS_TOKENS.add('property')
 
 NOT_CLASS_EXACT = set()
@@ -153,6 +177,18 @@ NOT_CALL_TOKENS.add('type')
 NOT_CALL_TOKENS.add('signature')
 NOT_CALL_TOKENS.add('operator')
 
+# subtrees never searched for a mentioned name: a comment or a string can spell
+# anything, and a signature spells the function's own name and its parameters
+NOT_MENTION_TOKENS = set()
+NOT_MENTION_TOKENS.add('comment')
+NOT_MENTION_TOKENS.add('string')
+NOT_MENTION_TOKENS.add('char')
+NOT_MENTION_TOKENS.add('parameter')
+NOT_MENTION_TOKENS.add('parameters')
+NOT_MENTION_TOKENS.add('param')
+NOT_MENTION_TOKENS.add('params')
+NOT_MENTION_TOKENS.add('type')
+
 CALLEE_FIELDS = []
 CALLEE_FIELDS.append('function')
 CALLEE_FIELDS.append('target')
@@ -172,6 +208,19 @@ NAME_TOKENS.add('variable')
 NAME_TOKENS.add('atom')
 NAME_TOKENS.add('constant')
 NAME_TOKENS.add('word')
+
+# never followed when hunting for a declared name: a return type is not one
+NOT_NAME_TOKENS = set()
+NOT_NAME_TOKENS.add('type')
+
+# a child carrying one of these holds names but is not the name: fortran's
+# `variable_declaration` ("integer :: value, r") is a NAME_TOKENS match too
+NOT_NAME_CHILD_TOKENS = set()
+NOT_NAME_CHILD_TOKENS.add('type')
+NOT_NAME_CHILD_TOKENS.add('declaration')
+NOT_NAME_CHILD_TOKENS.add('statement')
+NOT_NAME_CHILD_TOKENS.add('body')
+NOT_NAME_CHILD_TOKENS.add('block')
 
 LISP_FORM_TYPES = set()
 LISP_FORM_TYPES.add('list')
@@ -282,12 +331,24 @@ EMBEDDED_SCRIPT_TYPES.add('raw_text')
 EMBEDDED_SCRIPT_TYPES.add('frontmatter_js_block')
 
 
+_tokens = {}
+
+
 def type_tokens(node_type):
+    """the words in a node type name, cached
+
+    a grammar has a few hundred node types and every classification asks for
+    the same split again; the regex was a fifth of the time spent indexing.
+    the returned set is shared, so callers must not change it.
+    """
+    found = _tokens.get(node_type)
+    if found is not None: return found
     spaced = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', node_type)
     tokens = set()
     for token in spaced.lower().split('_'):
         if not token: continue
         tokens.add(token)
+    _tokens[node_type] = tokens
     return tokens
 
 
@@ -347,15 +408,42 @@ def is_ml_function(node):
     return False
 
 
+def is_inner_body(node, source):
+    """a body belonging to a definition around it, rather than a definition itself
+
+    the same type name means opposite things across grammars: d hangs
+    `function_body` under its `function_declaration`, dart puts it next to a
+    `function_signature`, vhdl's *is* the whole subprogram. the neighbours
+    settle it.
+    """
+    if node.type not in INNER_BODY_TYPES: return False
+    parent = node.parent
+    if parent is not None and is_function_node(parent, source): return True
+    previous = node.prev_named_sibling
+    if previous is None: return False
+    return 'signature' in previous.type
+
+
+def owns_body(node):
+    for child in node.named_children:
+        if child.type in INNER_BODY_TYPES: return True
+        if type_tokens(child.type) & BODY_TOKENS: return True
+    return False
+
+
 def is_function_node(node, source):
     if not node.is_named: return False
-    if node.type in INNER_BODY_TYPES: return False
+    if node.type in FUNCTION_EXACT: return True
+    if is_inner_body(node, source): return False
     if is_lisp_definition(node, source): return True
     if is_ml_function(node): return True
     tokens = type_tokens(node.type)
     if 'decorated' in tokens: return False
-    for child in node.named_children:
-        if child.type in HEADER_CHILD_TYPES: return True
+    # only the first child: zig writes `Decl (FnProto) (Block)`, and walking
+    # every child cost a millisecond a call on a file with many definitions
+    if node.named_child_count:
+        first = node.named_child(0)
+        if first is not None and first.type in HEADER_CHILD_TYPES: return True
     if tokens & NOT_FUNCTION_TOKENS: return False
     return bool(tokens & FUNCTION_TOKENS)
 
@@ -365,10 +453,18 @@ def is_anonymous_node(node, source):
     return bool(type_tokens(node.type) & ANONYMOUS_TOKENS)
 
 
+def at_top(node):
+    """the tree root, or a direct child of it"""
+    parent = node.parent
+    if parent is None: return True
+    if parent.type == 'program': return True
+    return parent.parent is None
+
+
 def is_class_node(node, source):
     if not node.is_named: return False
-    if node.parent is None: return False
-    if node.type in NOT_CLASS_EXACT and node.parent.type != 'program': return False
+    if node.type in CLASS_EXACT: return True
+    if node.type in NOT_CLASS_EXACT and not at_top(node): return False
     if is_lisp_class(node, source): return True
     tokens = type_tokens(node.type)
     if 'decorated' in tokens: return False
@@ -376,12 +472,24 @@ def is_class_node(node, source):
     return bool(tokens & CLASS_TOKENS)
 
 
+def veto_tokens(node_type):
+    """the tokens a reject list may act on
+
+    a `x_or_y` node type is a grammar union, and inherits no veto from either
+    branch: wgsl calls its call node
+    `type_constructor_or_function_call_expression`, which is a call however
+    much the word `type` appears in it.
+    """
+    tokens = type_tokens(node_type)
+    if 'or' in tokens: return set()
+    return tokens
+
+
 def is_call_node(node, source):
     if not node.is_named: return False
     if is_lisp_call(node, source): return True
-    tokens = type_tokens(node.type)
-    if tokens & NOT_CALL_TOKENS: return False
-    return bool(tokens & CALL_TOKENS)
+    if veto_tokens(node.type) & NOT_CALL_TOKENS: return False
+    return bool(type_tokens(node.type) & CALL_TOKENS)
 
 
 def ancestors(node):
@@ -405,6 +513,41 @@ def descendants(root):
             if cursor.goto_next_sibling(): climbing = False
 
 
+def with_names(nodes, source):
+    """only the candidates that declare a name, unless none of them do"""
+    kept = []
+    for node in nodes:
+        if name_of(node, source) is None: continue
+        kept.append(node)
+    if not kept: return nodes
+    return kept
+
+
+def with_bodies(nodes):
+    """only the candidates that own a body, unless none of them do"""
+    kept = []
+    for node in nodes:
+        if not owns_body(node): continue
+        kept.append(node)
+    if not kept: return nodes
+    return kept
+
+
+def widest_at_row(nodes):
+    """the outermost of the run starting on the innermost candidate's row
+
+    grammars stack a definition, its signature and its keyword on one row, and
+    the innermost of those is a fragment. a real enclosing function starts on
+    an earlier row, so the run stops before it.
+    """
+    row = nodes[0].start_point.row
+    found = nodes[0]
+    for node in nodes:
+        if node.start_point.row != row: break
+        found = node
+    return found
+
+
 def pick_function(leaf, source, mode):
     named = []
     every = []
@@ -416,8 +559,8 @@ def pick_function(leaf, source, mode):
     if not every: return None
     if mode == 'outer': return every[-1]
     if mode == 'inner': return every[0]
-    if named: return named[0]
-    return every[-1]
+    if not named: return every[-1]
+    return widest_at_row(with_bodies(with_names(named, source)))
 
 
 def pick_class(leaf, source, mode):
@@ -428,6 +571,37 @@ def pick_class(leaf, source, mode):
     if not every: return None
     if mode == 'outer': return every[-1]
     return every[0]
+
+
+def is_inner_duplicate(node, source):
+    """a function node another function node already covers, on the same row
+
+    grammars that split a definition into a body plus a signature (plus a
+    keyword marker) yield two or three function nodes per definition. only the
+    outermost of that run is the definition.
+    """
+    parent = node.parent
+    while parent is not None:
+        if parent.start_point.row != node.start_point.row: return False
+        if is_function_node(parent, source): return True
+        parent = parent.parent
+    return False
+
+
+def is_nested_fragment(node, source):
+    """a bodyless function node written inside another function
+
+    smali's invoke line parses as a `full_method_signature`, which carries the
+    callee's name and reads exactly like a definition. a real definition
+    nested in another one still owns its body.
+    """
+    if 'signature' not in node.type: return False
+    if owns_body(node): return False
+    parent = node.parent
+    while parent is not None:
+        if is_function_node(parent, source): return True
+        parent = parent.parent
+    return False
 
 
 def climb_wrappers(node):
@@ -499,6 +673,13 @@ def last_name_leaf(node):
     return found
 
 
+def is_name_child(node):
+    """a child that is the declared name itself, not a construct holding names"""
+    tokens = type_tokens(node.type)
+    if not tokens & NAME_TOKENS: return False
+    return not tokens & NOT_NAME_CHILD_TOKENS
+
+
 def name_of(node, source):
     """the declared name of a function/class node, or None"""
     named = node.child_by_field_name('name')
@@ -513,7 +694,13 @@ def name_of(node, source):
         if leaf is None: return None
         return text_of(leaf, source)
     for child in node.named_children:
+        if not is_name_child(child): continue
+        leaf = last_name_leaf(child)
+        if leaf is None: return text_of(child, source).strip()
+        return text_of(leaf, source)
+    for child in node.named_children:
         tokens = type_tokens(child.type)
+        if tokens & NOT_NAME_TOKENS: continue
         nested = False
         if is_function_node(child, source): nested = True
         if is_class_node(child, source): nested = True
@@ -523,11 +710,6 @@ def name_of(node, source):
         if not nested: continue
         found = name_of(child, source)
         if found is not None: return found
-    for child in node.named_children:
-        if not type_tokens(child.type) & NAME_TOKENS: continue
-        leaf = last_name_leaf(child)
-        if leaf is None: return text_of(child, source).strip()
-        return text_of(leaf, source)
     leaf = first_name_leaf(node)
     if leaf is None: return None
     return text_of(leaf, source)
@@ -557,6 +739,44 @@ def calls_in(node, source):
         name = callee_name(child, source)
         if not name: continue
         names.add(name)
+    return names
+
+
+def mention_leaves(node):
+    """named leaves under node, with comment, string and signature subtrees pruned"""
+    found = []
+    stack = []
+    for child in node.named_children:
+        stack.append(child)
+    while stack:
+        current = stack.pop()
+        if veto_tokens(current.type) & NOT_MENTION_TOKENS: continue
+        if not current.named_child_count:
+            found.append(current)
+            continue
+        for child in current.named_children:
+            stack.append(child)
+    return found
+
+
+def mentions_in(node, source, known, own):
+    """names out of `known` written inside node, for grammars with no call node
+
+    most grammars give a call a node type of its own, and is_call_node finds it
+    by that name. a good many do not: bash runs `helper "$1"` as a plain
+    command, wat writes `call $helper` as an instruction, smali's invoke is a
+    bare expression. there is no node type to match on, but every one of them
+    still spells the callee out, so a name that is indexed and written in the
+    body is taken as a call. the function's own name does not count, which
+    drops self-recursion along with the signature.
+    """
+    names = set()
+    for leaf in mention_leaves(node):
+        text = text_of(leaf, source).strip()
+        if not text: continue
+        if text == own: continue
+        if text not in known: continue
+        names.add(text)
     return names
 
 

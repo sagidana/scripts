@@ -1,0 +1,17 @@
+package sample
+
+type Box struct {
+	Size int
+}
+
+func helper(value int) int {
+	return value + 1
+}
+
+func greet(value int) int {
+	return helper(value) * 2
+}
+
+func runner() int {
+	return greet(3)
+}

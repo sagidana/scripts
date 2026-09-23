@@ -1,0 +1,11 @@
+_method box.helper(value)
+	_return value + 1
+_endmethod
+
+_method box.greet(value)
+	_return _self.helper(value) * 2
+_endmethod
+
+_method box.runner()
+	_return _self.greet(3)
+_endmethod

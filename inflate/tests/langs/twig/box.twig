@@ -1,0 +1,11 @@
+{% macro helper(value) %}
+  {{ value }}
+{% endmacro %}
+
+{% macro greet(value) %}
+  {{ _self.helper(value) }}
+{% endmacro %}
+
+{% macro runner() %}
+  {{ _self.greet(3) }}
+{% endmacro %}
