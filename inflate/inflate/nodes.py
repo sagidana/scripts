@@ -445,7 +445,11 @@ def is_function_node(node, source):
         first = node.named_child(0)
         if first is not None and first.type in HEADER_CHILD_TYPES: return True
     if tokens & NOT_FUNCTION_TOKENS: return False
-    return bool(tokens & FUNCTION_TOKENS)
+    if not tokens & FUNCTION_TOKENS: return False
+    # a class is not a function, however the grammar spells it: crystal writes
+    # `class_def`, and the `def` in it is the word for a definition, not a
+    # method. is_class_node never asks the reverse, so this cannot loop.
+    return not is_class_node(node, source)
 
 
 def is_anonymous_node(node, source):
@@ -811,6 +815,7 @@ def find_definition(root, source, row, col, args):
     if node is not None: return climb_wrappers(node)
     node = pick_body_with_signature(leaf)
     if node is not None: return node
+    if not args.fallback: return None
     node = pick_fallback_class(leaf, source, args.mode)
     if node is None: return None
     return climb_wrappers(node)

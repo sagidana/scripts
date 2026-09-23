@@ -13,7 +13,7 @@ as `file:start:end` followed by its lines. a hit with no enclosing function
 falls back to the enclosing class, though never to the file's own root. hits
 outside both, or in files without a grammar, are echoed unchanged.
 
-    --function    expand to the enclosing function (default)
+    --function    expand to the enclosing function only, never a class
     --class       expand to the enclosing class/struct/module instead
     --callees N   also expand functions called from the result, N levels deep
     --callers N   also expand functions that call the result, N levels deep
@@ -92,7 +92,7 @@ def parse_args(argv):
                            help='rg --vimgrep lines, or files holding them (default stdin, also -)')
     argparser.add_argument('--function',
                            action='store_true',
-                           help='expand to the enclosing function (default)')
+                           help='expand to the enclosing function only, never a class')
     argparser.add_argument('--class',
                            dest='klass',
                            action='store_true',
@@ -131,6 +131,11 @@ def parse_args(argv):
     if args.outer: args.mode = 'outer'
     args.kind = 'function'
     if args.klass: args.kind = 'class'
+    # only the bare default falls back to a class: asking for --function is
+    # asking for a function, and a class is not one
+    args.fallback = True
+    if args.function: args.fallback = False
+    if args.klass: args.fallback = False
     return args
 
 

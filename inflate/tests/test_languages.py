@@ -318,6 +318,22 @@ def test_class_from_its_own_declaration(lang):
 
 
 @pytest.mark.parametrize('lang', LANGUAGES)
+def test_function_flag_refuses_the_class_fallback(lang):
+    """--function asked for a function, and a class is not one
+
+    the bare default falls back to the enclosing class so that a hit on a
+    smali directive says something; naming the flag opts out of that.
+    """
+    if not FIXTURES[lang][1]: pytest.skip('no class construct')
+    shape = Shape(lang)
+    inside = headers(inflate(lang, shape.helper_call(), '--class'))
+    assert len(inside) == 1, 'expected exactly one definition'
+    row = inside[0][0]
+    if headers(inflate(lang, row)) != inside: pytest.skip('no fallback reaches the class here')
+    assert not headers(inflate(lang, row, '--function')), '--function fell back to the class'
+
+
+@pytest.mark.parametrize('lang', LANGUAGES)
 def test_callees_one(lang):
     """runner's single callee is greet"""
     shape = Shape(lang)
